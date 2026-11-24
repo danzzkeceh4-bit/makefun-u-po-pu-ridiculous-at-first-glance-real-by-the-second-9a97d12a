@@ -15,15 +15,42 @@ PITCH = (
     "fresh sheets."
 )
 
+# Competition gate: entry.txt must be UTF-8, 1-200 characters,
+# and not only whitespace. Boundaries are constants so the check
+# is one place to change if the gate ever moves.
+MIN_ENTRY_CHARS = 1
+MAX_ENTRY_CHARS = 200
+
+
+def validate(pitch: str) -> str:
+    """Reject empty/whitespace-only or over-long pitches before writing."""
+    text = pitch.strip()
+    if not text or not MIN_ENTRY_CHARS <= len(text) <= MAX_ENTRY_CHARS:
+        raise ValueError(
+            f"entry must be {MIN_ENTRY_CHARS}-{MAX_ENTRY_CHARS} "
+            "non-whitespace characters"
+        )
+    return text
+
 
 def main() -> int:
-    if not PITCH.strip() or not 1 <= len(PITCH) <= 200:
-        print("entry must be 1-200 non-whitespace characters", file=sys.stderr)
+    try:
+        entry = validate(PITCH)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
     os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "entry.txt"), "w", encoding="utf-8") as f:
-        f.write(PITCH)
+    out_path = os.path.join(out_dir, "entry.txt")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(entry)
+    # Read-back guard: what landed on disk must be byte-identical
+    # to the validated pitch, with no trailing newline added.
+    with open(out_path, "rb") as f:
+        on_disk = f.read()
+    if on_disk != entry.encode("utf-8"):
+        print("entry.txt on disk does not match validated pitch", file=sys.stderr)
+        return 1
     return 0
 
 
